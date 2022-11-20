@@ -1,0 +1,21 @@
+---
+
+
+- block:
+    - name: "set master node"
+      community.general.redis:
+        login_host: "{{ current_redis_node_loop2.ip }}"
+        command: replica
+        replica_mode: master
+
+    - name: "set label 'role=master' to pod '{{ current_redis_node_loop2.name }}'"
+      kubernetes.core.k8s:
+        definition:
+          apiversion: v1
+          kind: Pod
+          metadata:
+            name: "{{ current_redis_node_loop2.name }}"
+            namespace: "{{ ansible_operator_meta.namespace }}"
+            labels:
+              role: "master"
+  when: current_redis_node_loop2.ip == redis_master_node.ip

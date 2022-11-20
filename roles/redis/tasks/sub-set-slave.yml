@@ -1,0 +1,23 @@
+---
+
+- block:
+    - name: "enable replication on pod '{{ current_redis_node_loop3.name }}'"
+      community.general.redis:
+        login_host: "{{ current_redis_node_loop3.ip }}"
+        command: replica
+        master_host: "{{ redis_master_node.ip }}"
+        master_port: 6379
+
+    - name: "set label 'role=slave' to pod '{{ current_redis_node_loop3.name }}'"
+      kubernetes.core.k8s:
+        definition:
+          apiversion: v1
+          kind: Pod
+          metadata:
+            name: "{{ current_redis_node_loop3.name }}"
+            namespace: "{{ ansible_operator_meta.namespace }}"
+            labels:
+              role: "slave"
+
+  when: current_redis_node_loop3.ip != redis_master_node.ip
+

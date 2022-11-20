@@ -1,0 +1,119 @@
+---
+
+- set_fact:
+    redis_container_version: "{{ version }}"
+  when:
+    - version is defined
+    - version|length>0
+
+- name: "ensure namespace '{{ ansible_operator_meta.namespace }}' exists"
+  kubernetes.core.k8s:
+    name: "{{ ansible_operator_meta.namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: "ensure '{{ size }}' redis instances are available"
+  kubernetes.core.k8s:
+    wait: true
+    definition:
+      kind: Deployment
+      apiVersion: apps/v1
+      metadata:
+        name: '{{ ansible_operator_meta.name }}-redis-deployment'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      spec:
+        replicas: "{{ size }}"
+        selector:
+          matchLabels:
+            app: redis
+        template:
+          metadata:
+            labels:
+              app: redis
+          spec:
+            containers:
+              - name: redis
+                image: "docker.io/redis:{{ redis_container_version }}"
+                ports:
+                  - containerPort: 6379
+            livenessProbe:
+              exec:
+                command:
+                  - redis-cli info | grep master_sync_in_progress:0
+              initialDelaySeconds: 5
+              periodSeconds: 5
+
+- name: ensure service exists
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ ansible_operator_meta.name }}-redis-master"
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      spec:
+        selector:
+          app: redis
+          role: master
+        ports:
+          - protocol: TCP
+            port: 6379
+            targetPort: 6379
+
+- name: ensure service exists
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ ansible_operator_meta.name }}-redis-slave"
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      spec:
+        selector:
+          app: redis
+          role: slave
+        ports:
+          - protocol: TCP
+            port: 6379
+            targetPort: 6379
+
+- block:
+    - name: lookup pods
+      set_fact:
+        pods_lookup: "{{ q('k8s', api_version='v1', kind='Pod', namespace=ansible_operator_meta.namespace, app='redis') }}"
+  rescue:
+    - name: set pods_lookup to default on failure
+      set_fact:
+        pods_lookup: []
+
+- set_fact:
+    master_count: 0
+    redis_master_node: {}
+    redis_nodes: []
+
+- include_tasks: sub-status.yml
+  loop_control:
+    loop_var: current_pod
+  with_items: "{{ pods_lookup }}"
+
+- include_tasks: sub-elect-master.yml
+  loop_control:
+    loop_var: current_redis_node
+  with_items: "{{ redis_nodes }}"
+
+- debug:
+    msg: "{{ redis_nodes }}"
+
+- debug:
+    msg: "{{ redis_master_node }}"
+
+- include_tasks: sub-set-master.yml
+  loop_control:
+    loop_var: current_redis_node_loop2
+  with_items: "{{ redis_nodes }}"
+
+- include_tasks: sub-set-slave.yml
+  loop_control:
+    loop_var: current_redis_node_loop3
+  with_items: "{{ redis_nodes }}"

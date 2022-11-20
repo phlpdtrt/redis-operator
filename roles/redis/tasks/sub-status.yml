@@ -1,0 +1,16 @@
+---
+
+- name: get current pod state
+  community.general.redis_info:
+    login_host: "{{ current_pod.status.podIP }}"
+  register: redis_info_result_obj
+
+- set_fact:
+    redis_node:
+      - name: "{{ current_pod.metadata.name }}"
+        ip: "{{ current_pod.status.podIP }}"
+        current_role: "{{ redis_info_result_obj.info.role }}"
+        uptime_in_seconds: "{{ redis_info_result_obj.info.uptime_in_seconds }}"
+
+- set_fact:
+    redis_nodes: "{{ redis_nodes + redis_node }}"

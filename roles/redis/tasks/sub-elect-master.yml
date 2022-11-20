@@ -1,0 +1,8 @@
+---
+
+- name: elect master node
+  set_fact:
+    redis_master_node:
+      ip: "{{ current_redis_node.ip }}"
+      uptime_in_seconds: "{{ current_redis_node.uptime_in_seconds }}"
+  when: redis_master_node|length==0 or redis_master_node.uptime_in_seconds|int < current_redis_node.uptime_in_seconds|int

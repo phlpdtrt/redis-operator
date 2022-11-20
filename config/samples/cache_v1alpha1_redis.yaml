@@ -1,0 +1,10 @@
+---
+
+apiVersion: cache.phlpdtrt.github.io/v1alpha1
+kind: Redis
+metadata:
+  name: cache
+spec:
+  size: 3
+  version: 6.2.7
+
