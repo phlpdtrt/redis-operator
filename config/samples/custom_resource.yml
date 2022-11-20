@@ -361,7 +361,7 @@ spec:
         env:
         - name: ANSIBLE_GATHERING
           value: explicit
-        image: ghcr.io/phlpdtrt/redis-operator:0.0.1
+        image: ghcr.io/phlpdtrt/redis-operator:0.0.3
         livenessProbe:
           httpGet:
             path: /healthz
